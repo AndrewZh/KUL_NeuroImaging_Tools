@@ -454,11 +454,11 @@ lesion_wf="${cwd}/lesion_wf"
 
 if [[ "$o_flag" -eq 1 ]]; then
 	
-    output="${out_dir}"
+    output_d="${out_dir}"
 
 else
 
-	output="${lesion_wf}/output_LWF/sub-${subj}${ses_long}"
+	output_d="${lesion_wf}/output_LWF/sub-${subj}${ses_long}"
 
 fi
 
@@ -476,15 +476,15 @@ fi
 
 # echo $lesion_wf
 
-ROIs="${output}/ROIs"
+ROIs="${output_d}/ROIs"
 	
-overlap="${output}/overlap"
+overlap="${output_d}/overlap"
 
 # make your dirs
 
 mkdir -p ${preproc}
 
-mkdir -p ${output}
+mkdir -p ${output_d}
 
 mkdir -p ${ROIs}
 
@@ -513,7 +513,7 @@ echo "KUL_lesion_WF @ ${d} with parent pid $$ "
 
     str_pp="${preproc}/sub-${subj}${ses_long}"
 
-    str_op="${output}/sub-${subj}${ses_long}"
+    str_op="${output_d}/sub-${subj}${ses_long}"
 
     str_overlap="${overlap}/sub-${subj}${ses_long}"
 
@@ -524,13 +524,19 @@ echo "KUL_lesion_WF @ ${d} with parent pid $$ "
 
 if [[ "${P_flag}" -eq 1 ]] && [[ "${t_flag}" -eq 0 ]]; then
 
+    echo "Working with default pediatric template and priors"
+
     MNI_T1="${function_path}/atlasses/Templates/NKI10u_T1.nii.gz"
 
     MNI_T1_brain="${function_path}/atlasses/Templates/NKI10u_brain.nii.gz"
 
     MNI_brain_mask="${function_path}/atlasses/Templates/NKI10u_brain_mask.nii.gz"
 
+    new_priors="${function_path}/atlasses/Templates/priors/NKI10U_Prior_%d.nii.gz"
+
 elif [[ "${P_flag}" -eq 1 ]] && [[ "${t_flag}" -eq 1 ]]; then
+
+    echo "Working with cooked template template and priors"
 
     MNI_T1="${function_path}/atlasses/Templates/VBG_T1_temp_ped.nii.gz"
 
@@ -538,7 +544,11 @@ elif [[ "${P_flag}" -eq 1 ]] && [[ "${t_flag}" -eq 1 ]]; then
 
     MNI_brain_mask="${function_path}/atlasses/Templates/NKI10u_brain_mask.nii.gz"
 
+    new_priors="${function_path}/atlasses/Templates/priors/VBG_ped_T_Prior_%d.nii.gz"
+
 elif [[ "${P_flag}" -eq 0 ]] && [[ "${t_flag}" -eq 1 ]]; then
+
+    echo "Working with cooked adult template and priors"
 
     MNI_T1="${function_path}/atlasses/Templates/VBG_T1_temp.nii.gz"
 
@@ -546,13 +556,19 @@ elif [[ "${P_flag}" -eq 0 ]] && [[ "${t_flag}" -eq 1 ]]; then
 
     MNI_brain_mask="${function_path}/atlasses/Templates/HR_T1_MNI_brain_mask.nii.gz"
 
+    new_priors="${function_path}/atlasses/Templates/priors/VBG_adult_T_Prior_%d.nii.gz"
+
 elif [[ "${P_flag}" -eq 0 ]] && [[ "${t_flag}" -eq 0 ]]; then
+
+    echo "Working with default adult template and priors"
 
     MNI_T1="${function_path}/atlasses/Templates/HR_T1_MNI.nii.gz"
 
     MNI_T1_brain="${function_path}/atlasses/Templates/HR_T1_MNI_brain.nii.gz"
 
     MNI_brain_mask="${function_path}/atlasses/Templates/HR_T1_MNI_brain_mask.nii.gz"
+
+    new_priors="${function_path}/atlasses/Templates/priors/HRT1_Prior_%d.nii.gz"
 
 fi
 
@@ -582,25 +598,25 @@ fi
 
     # CSF+GMC+GMB+WM  and the rest
 
-    tmp_s2T1_CSFGMC="${str_pp}_tmp_s2T1_CSFGMC.nii.gz"
+    tmp_s2T1_nCSFGMC="${str_pp}_tmp_s2T1_nCSFGMC.nii.gz"
 
-    tmp_s2T1_CSFGMCB="${str_pp}_tmp_s2T1_CSFGMCB.nii.gz"
+    tmp_s2T1_nCSFGMCB="${str_pp}_tmp_s2T1_nCSFGMCB.nii.gz"
+
+    tmp_s2T1_nCSFGMCBWM="${str_pp}_tmp_s2T1_nCSFGMCBWM.nii.gz"
+
+    tmp_s2T1_nCSFGMCBWMr="${str_pp}_tmp_s2T1_nCSFGMCBWMr.nii.gz"
 
     tmp_s2T1_CSFGMCBWM="${str_pp}_tmp_s2T1_CSFGMCBWM.nii.gz"
-
-    tmp_s2T1_CSFGMCBWMr="${str_pp}_tmp_s2T1_CSFGMCBWMr.nii.gz"
 
     MNI2_in_T1_scaled="${str_pp}_MNI_brain_IW_scaled.nii.gz"
 
     tissues=("CSF" "GMC" "GMBG" "WM");
-    
-    # making new priors in prog
-
-    new_priors="${function_path}/atlasses/Templates/priors/new_priors_%d.nii.gz"
 
     priors_str="${new_priors::${#new_priors}-9}*.nii.gz"
 
     priors_array=($(ls ${priors_str}))
+    
+    # arrays
 
     declare -a Atropos1_posts
 
@@ -626,6 +642,8 @@ fi
 
     declare -a Atropos2_posts_bin
 
+    declare -a Atropos1_posts_bin
+
     declare -a T1_ntiss_At2masked
 
     declare -a nMNI2_inT1_ntiss_sc2T1MNI1
@@ -643,6 +661,8 @@ fi
     declare -a A1_nTiss_Norm_mean
 
     declare -a A1_nTiss_Int_scaled
+
+    declare -a A1_nTiss_Int_scaled_fill
 
     declare -a R_nTiss_map_filled
 
@@ -706,6 +726,8 @@ fi
     stitched_T1_nat="${str_pp}_stitched_T1_brain_nat.nii.gz"
 
     stitched_T1_nat_innat="${str_pp}_stitched_T1_brain_nat_bk2nat.nii.gz"
+
+    stitched_T1_temp_innat="${str_pp}_stitched_T1_brain_temp_bk2nat.nii.gz"
 
     stitched_T1="${str_pp}_stitched_T1_brain.nii.gz"
 
@@ -775,11 +797,7 @@ fi
 
     rough_mask="${str_pp}_rough_mask.nii.gz"
 
-    clean_mask_1="${str_pp}_clean_brain_mask_MNI_1.nii.gz"
-
-    clean_mask_2="${str_pp}_clean_brain_mask_MNI_2.nii.gz"
-
-    clean_mask_3="${str_pp}_clean_brain_mask_MNI_3.nii.gz"
+    rough_mask_minL="${str_pp}_rough_mask_minL.nii.gz"
 
     clean_mask_nat_binv="${str_pp}_clean_brain_mask_nat_binv.nii.gz"
 
@@ -860,6 +878,8 @@ fi
     MNI2_in_T1_linsc_norm="${str_pp}_MNI2_inT1_linsc_norm.nii.gz"
     
     atropos1_brain_norm="${str_pp}_Atropos1_brain_norm.nii.gz"
+
+    T1b_inMNI1_pN_sc2st2f="${str_pp}_T1b_inMNI1_pN_sc2_st2fill.nii.gz"
     
     T1b_inMNI1_punched="${str_pp}_T1brain_inMNI1_punched.nii.gz"
     
@@ -899,7 +919,7 @@ Atropos2_wf_mark=($(find ${preproc} -type f | grep "_atropos2_Segmentation.nii.g
 
 srch_postAtropos2=($(find ${preproc} -type f | grep "_atropos2_SegmentationPosterior2_clean_bk2nat1.nii.gz"));
 
-srch_make_images=($(find ${preproc} -type f | grep "${str_pp}_synthT1_MNI1.nii.gz"));
+srch_make_images=($(find ${preproc} -type f | grep "${str_pp}_hybridT1_native_S.nii.gz"));
 
 # Misc subfuctions
 
@@ -1013,8 +1033,7 @@ function KUL_antsBETp {
 
         echo "hd-bet is not found, resorting to ANTs based BET" >> ${prep_log}
 
-        task_in="mrthreshold -force -nthreads ${ncpu} -percentile 60 ${prim_in} - | mrcalc - ${Lmask_MNIBET} \
-        -subtract ${rough_mask} -force -nthreads ${ncpu} && fslmaths ${L_mask_reori} -binv -mul ${rough_mask_minL}"
+        task_in="mrthreshold -force -nthreads ${ncpu} -percentile 55 ${prim_in} ${rough_mask} -force -nthreads ${ncpu} && fslmaths ${L_mask_reori} -binv -mul ${rough_mask} ${rough_mask_minL}"
 
         task_exec
 
@@ -1262,7 +1281,7 @@ function KUL_Lmask_part2 {
 
     # first we get the mean and normalized MNI2_inT1 after the scaling process done above
 
-    MNI2_inT1_sc_mean=($(fslstats ${MNI2_inT1_sc_mean} -M))
+    MNI2_inT1_sc_mean=$(fslstats ${MNI2_in_T1_scaled} -M)
 
     task_in="fslmaths ${MNI2_in_T1_scaled} -div ${MNI2_inT1_sc_mean} ${MNI2_in_T1_linsc_norm}"
 
@@ -1279,7 +1298,7 @@ function KUL_Lmask_part2 {
 
     task_exec
 
-    T1b_inMNI1p_mean=($(fslstats ${T1b_inMNI1_punched} -M))
+    T1b_inMNI1p_mean=$(fslstats ${T1b_inMNI1_punched} -M)
 
     task_in="fslmaths ${T1b_inMNI1_punched} -div ${T1b_inMNI1p_mean} ${T1b_inMNI1_p_norm}"
 
@@ -1318,7 +1337,7 @@ function KUL_Lmask_part2 {
         # create the tissue masks and punch the lesion out of them
 
         task_in="fslmaths ${NP_arr_rs[$ts]} -thr 0.1 -mas ${MNI_brain_mask} -bin -save ${NP_arr_rs_bin[$ts]} -binv \
-        ${NP_arr_rs_binv[$ts]} && fslmaths ${Atropos2_posts[$ts]} -thr 0.995 -mas ${brain_mask_minL_inMNI1} -bin ${Atropos2_posts_bin[$ts]}"
+        ${NP_arr_rs_binv[$ts]} && mrthreshold -force -quiet -nthreads ${ncpu} -toppercent 5 ${Atropos2_posts[$ts]} - | mrcalc - ${brain_mask_minL_inMNI1} -mult 0.001 -gt ${Atropos2_posts_bin[$ts]}"
 
         task_exec
 
@@ -1329,38 +1348,75 @@ function KUL_Lmask_part2 {
 
         task_exec
 
-        T1_ntiss_At2m_mean=($(fslstats ${T1_ntiss_At2masked[$ts]} -M))
+        T1_ntiss_At2m_mean=$(fslstats ${T1_ntiss_At2masked[$ts]} -M)
 
-        MNI2_inT1_ntiss_mean=($(fslstats ${MNI2_inT1_ntiss[$ts]} -M))
+        MNI2_inT1_ntiss_mean=$(fslstats ${MNI2_inT1_ntiss[$ts]} -M)
 
         task_in="fslmaths ${MNI2_inT1_ntiss[$ts]} -div ${MNI2_inT1_ntiss_mean} -mul ${T1_ntiss_At2m_mean} ${nMNI2_inT1_ntiss_sc2T1MNI1[$ts]}"
 
         task_exec
 
-        # task_in="mrcalc ${MNI2_in_T1_scaled} ${NP_arr_rs_bin[$ts]} -mult ${MNI2inT1_tiss_HM[$ts]} -force -nthreads ${ncpu}"
-
-        # task_exec
-
-
     done
 
     # Sum up the tissues while masking in and out to minimize overlaps and holes
+    # here we use ImageMath addtozero instead, to preserve a smooth interface between the tissues
+    # the fslmaths step works well, but results a rather cartoon looking image
+    # the order of images input to ImageMath addtozero makes a difference
+    # we start with GMC as that is the most important class
+    # add the CSF voxels, then add the GM-BG voxels, then finally the WM voxels
 
-    task_in="fslmaths ${MNI2_inT1_ntiss_sc2T1MNI1[0]} -mas ${NP_arr_rs_binv[1]} -add ${MNI2_inT1_ntiss_sc2T1MNI1[1]} -save ${tmp_s2T1_CSFGMC} \
-    -mas ${NP_arr_rs_binv[2]} -add ${MNI2_inT1_ntiss_sc2T1MNI1[2]} -save ${tmp_s2T1_CSFGMCB} -mas ${NP_arr_rs_binv[3]} -add \
-    -save ${MNI2_inT1_ntiss_sc2T1MNI1[3]} -mul ${T1b_inMNI1p_mean} ${tmp_s2T1_CSFGMCBWM}"
+    CSF_max=$(mrstats -ignorezero -output max -quiet -force ${nMNI2_inT1_ntiss_sc2T1MNI1[0]})
+
+    CSF_nmean=$(mrcalc `mrstats -ignorezero -output mean -quiet -force ${nMNI2_inT1_ntiss_sc2T1MNI1[1]}` 0.2 -mul -force -quiet)
+
+    # fix for CSF signal in case a post contrast input is used
+
+    if  (( $(bc <<<"${CSF_max} > ${CSF_nmean}") )); then
+
+        echo " CSF signal is too high, is this a postcontrast scan ? correcting"
+
+        echo " CSF signal is too high, is this a postcontrast scan ? correcting" >> ${prep_log}
+
+        task_in="fslmaths ${MNI2_inT1_ntiss[0]} -div ${CSF_max} -mul ${CSF_nmean} ${str_pp}_nMNI2_inT1_linsc_norm_nCSF_cor.nii.gz"
+
+        task_exec
+
+        task_in="ImageMath 3 ${tmp_s2T1_nCSFGMC} addtozero ${nMNI2_inT1_ntiss_sc2T1MNI1[1]} ${str_pp}_nMNI2_inT1_linsc_norm_nCSF_cor.nii.gz && ImageMath 3 \
+        ${tmp_s2T1_nCSFGMCB} addtozero ${tmp_s2T1_nCSFGMC} ${nMNI2_inT1_ntiss_sc2T1MNI1[2]} && ImageMath 3 ${tmp_s2T1_nCSFGMCBWM} addtozero ${tmp_s2T1_nCSFGMCB} ${nMNI2_inT1_ntiss_sc2T1MNI1[3]}"
+
+        task_exec
+
+    else
+
+        task_in="ImageMath 3 ${tmp_s2T1_nCSFGMC} addtozero ${nMNI2_inT1_ntiss_sc2T1MNI1[1]} ${nMNI2_inT1_ntiss_sc2T1MNI1[0]} && ImageMath 3 \
+        ${tmp_s2T1_nCSFGMCB} addtozero ${tmp_s2T1_nCSFGMC} ${nMNI2_inT1_ntiss_sc2T1MNI1[2]} && ImageMath 3 ${tmp_s2T1_nCSFGMCBWM} addtozero ${tmp_s2T1_nCSFGMCB} ${nMNI2_inT1_ntiss_sc2T1MNI1[3]}"
+
+        task_exec
+
+
+    fi
+
+    
+    task_in="ImageMath 3 ${tmp_s2T1_nCSFGMCBWMr} addtozero ${tmp_s2T1_nCSFGMCBWM} ${T1b_inMNI1_p_norm}"
+
+    task_exec
+
+    task_in="fslmaths ${tmp_s2T1_nCSFGMCBWMr} -mul ${T1b_inMNI1p_mean} ${tmp_s2T1_CSFGMCBWM}"
 
     task_exec
 
     ############
 
     # here we create the stitched and initial filled images
+    # we also need to reconstitute the target image it seems
+    # this is done in line, using fslmaths and fslstats, we divide the real image by its mean and multiply it by the mean of the synth image
 
-    if [[ -z "${bilateral}" ]] && [[ ${t_flag} == 0 ]]; then
+    if [[ -z "${bilateral}" ]] && [[ "${t_flag}" -eq 0 ]]; then
 
         # if not bilateral, we do this using native tissue and template tissue
         
         # first we create a new healthy version of the lesioned hemisphere
+        # native tissue stitched image doesn't need scaling
 
         task_in="fslmaths ${fT1brain_inMNI2} -mas ${L_hemi_mask} ${fT1_H_hemi}"
 
@@ -1381,12 +1437,16 @@ function KUL_Lmask_part2 {
         #######
 
         # repeat above process for template data - without filling of the donor image
+        # this is not correct
+        # it should be the trully scaled MNI2_in_T1
+        # here we need scaling
         
-        task_in="fslmaths ${MNI2_in_T1_scaled} -mas ${L_hemi_mask} ${Temp_L_hemi}"
+        task_in="fslmaths ${tmp_s2T1_CSFGMCBWM} -mas ${L_hemi_mask} ${Temp_L_hemi}"
 
         task_exec
 
-        task_in="fslmaths ${T1_brain_inMNI2} -mas ${L_hemi_mask_binv} -add ${Temp_L_hemi} ${stitched_T1_temp}"
+        task_in="fslmaths ${T1_brain_inMNI2} -div `mrstats -force -nthreads ${ncpu} -quiet -mask ${Lmask_binv_inMNI1_dilx2} -ignorezero -output mean ${T1_brain_inMNI2} ` \
+        -mul `fslstats ${tmp_s2T1_CSFGMCBWM} -M ` -mas ${L_hemi_mask_binv} -add ${Temp_L_hemi} ${stitched_T1_temp}"
 
         task_exec
 
@@ -1421,7 +1481,7 @@ function KUL_Lmask_part2 {
 
         T1_filled1=${Temp_T1_filled1}
 
-    elif [[ ! -z "${bilateral}" ]] || [[ ${t_flag} == 1 ]]; then
+    elif [[ ! -z "${bilateral}" ]] || [[ "${t_flag}" -eq 1 ]]; then
 
         # if bilateral we do a simple(r) filling
 
@@ -1434,17 +1494,18 @@ function KUL_Lmask_part2 {
         # similarly but no hemisphere work and no stitching
         # stitched_T1 and stitched_T1_nat are now fake ones
 
-        stitched_T1=${MNI2_in_T1_scaled}
+        stitched_T1=${tmp_s2T1_CSFGMCBWM}
 
         # create the initial filling graft
 
-        task_in="fslmaths ${MNI2_in_T1_scaled} -mul ${Lmask_bin_inMNI2_s3} ${Temp_bil_Lmask_fill1}"
+        task_in="fslmaths ${tmp_s2T1_CSFGMCBWM} -mul ${Lmask_bin_inMNI2_s3} ${Temp_bil_Lmask_fill1}"
 
         task_exec
 
         # Generate initial filled image
 
-        task_in="fslmaths ${T1_brain_inMNI2} -mul ${Lmask_binv_inMNI2_s3} -add ${Temp_bil_Lmask_fill1} ${Temp_T1_bilfilled1}"
+        task_in="fslmaths ${T1_brain_inMNI2} -div `mrstats -force -nthreads ${ncpu} -quiet -mask ${Lmask_binv_inMNI1_dilx2} -ignorezero -output mean ${T1_brain_inMNI2} ` \
+        -mul `fslstats ${tmp_s2T1_CSFGMCBWM} -M ` -mul ${Lmask_binv_inMNI2_s3} -add ${Temp_bil_Lmask_fill1} ${Temp_T1_bilfilled1}"
 
         task_exec
 
@@ -1514,11 +1575,11 @@ function KUL_Lmask_part2 {
 
         # Run AtroposN4
 
-        if [[ -z "${bilateral}" ]] && [[ ${t_flag} == 0 ]]; then
+        if [[ -z "${bilateral}" ]] && [[ "${t_flag}" -eq 0 ]]; then
 
             atropos1_brain=${T1_sti2fill_brain}
 
-        elif [[ ! -z "${bilateral}" ]] || [[ ${t_flag} == 1 ]]; then
+        elif [[ ! -z "${bilateral}" ]] || [[ "${t_flag}" -eq 1 ]]; then
 
             echo " Using the initial filled for Atropos " >> ${prep_log}
 
@@ -1535,9 +1596,9 @@ function KUL_Lmask_part2 {
 
         atropos_out="${str_pp}_atropos1_"
 
-        wt="0.4"
+        wt="0.3"
 
-        mrf="[0.3,1,1,1]"
+        mrf="[0.2,1,1,1]"
 
         KUL_antsAtropos
 
@@ -1557,11 +1618,11 @@ function KUL_Lmask_part2 {
 
         echo ${priors_array[@]} >> ${prep_log}
 
-        if [[ -z "${bilateral}" ]] && [[ ${t_flag} == 0 ]]; then
+        if [[ -z "${bilateral}" ]] && [[ "${t_flag}" -eq 0 ]]; then
 
             atropos1_brain=${T1_sti2fill_brain}
 
-        elif [[ ! -z "${bilateral}" ]] || [[ ${t_flag} == 1 ]]; then
+        elif [[ ! -z "${bilateral}" ]] || [[ "${t_flag}" -eq 1 ]]; then
 
             echo " Using the initial filled for Atropos " >> ${prep_log}
 
@@ -1905,7 +1966,7 @@ if [[ "${E_flag}" -eq 0 ]]; then
 
         wt="0.1"
 
-        mrf="[0.2,1,1,1]"
+        mrf="[0.1,1,1,1]"
 
         KUL_antsAtropos
 
@@ -1947,6 +2008,8 @@ if [[ "${E_flag}" -eq 0 ]]; then
         overlap_left=$(mrstats -force -nthreads ${ncpu} ${lesion_left_overlap} -output count -quiet -ignorezero)
 
         overlap_right=$(mrstats -force -nthreads ${ncpu} ${lesion_right_overlap} -output count -quiet -ignorezero)
+
+        T1b_inMNI1p_mean=$(fslstats ${T1b_inMNI1_punched} -M)
 
         L_ovLt_2_total=$(echo ${overlap_left}*100/${Lmask_tot_v} | bc)
 
@@ -2001,7 +2064,7 @@ if [[ "${E_flag}" -eq 0 ]]; then
 
             bilateral=1
 
-            stitched_T1=${MNI2_in_T1_scaled}
+            stitched_T1=${tmp_s2T1_CSFGMCBWM}
 
             T1_filled1=${Temp_T1_bilfilled1}
 
@@ -2013,11 +2076,11 @@ if [[ "${E_flag}" -eq 0 ]]; then
 
         fi
 
-        if [[ -z "${bilateral}" ]] && [[ ${t_flag} == 0 ]]; then
+        if [[ -z "${bilateral}" ]] && [[ "${t_flag}" -eq 0 ]]; then
 
             atropos1_brain=${T1_sti2fill_brain}
 
-        elif [[ ! -z "${bilateral}" ]] || [[ ${t_flag} == 1 ]]; then
+        elif [[ ! -z "${bilateral}" ]] || [[ "${t_flag}" -eq 1 ]]; then
 
             echo " Using the initial filled for Atropos " >> ${prep_log}
 
@@ -2086,7 +2149,8 @@ if [[ "${E_flag}" -eq 0 ]]; then
         # will be used to fill holes in synth image
 
         task_in="WarpImageMultiTransform 3 ${stitched_T1_nat} ${stitched_T1_nat_innat} -R ${T1_brain_clean} \
-        -i ${T1_bk2nat1_str}0GenericAffine.mat ${T1_bk2nat1_str}1InverseWarp.nii.gz"
+        -i ${T1_bk2nat1_str}0GenericAffine.mat ${T1_bk2nat1_str}1InverseWarp.nii.gz && WarpImageMultiTransform 3 ${stitched_T1_temp} \
+        ${stitched_T1_temp_innat} -R ${T1_brain_clean} -i ${T1_bk2nat1_str}0GenericAffine.mat ${T1_bk2nat1_str}1InverseWarp.nii.gz"
 
         task_exec
 
@@ -2132,9 +2196,18 @@ if [[ "${E_flag}" -eq 0 ]]; then
         # task_in="fslmaths ${T1_sti2fill_brain} -bin -mul ${T1_st2f_mean} ${T1b_st2f_mean_im} && ImageMath 3 ${atropos1_brain_norm} \
         # Normalize ${T1_sti2fill_brain} ${T1b_st2f_mean_im}"
 
-        T1_st2f_mean=($(fslstats ${T1_sti2fill_brain} -M))
+        # just in case but this fslstats step is getting done before this point
+        T1b_inMNI1p_mean=$(fslstats ${T1b_inMNI1_punched} -M)
 
-        task_in"fslmaths ${atropos1_brain} -div ${T1_st2f_mean} ${atropos1_brain_norm}"
+        T1_st2f_mean=$(fslstats ${T1_sti2fill_brain} -M)
+
+        task_in="fslmaths ${atropos1_brain} -div ${T1_st2f_mean} ${atropos1_brain_norm}"
+
+        task_exec
+
+        T1b_inMNI1p_N_mean=$(fslstats ${T1b_inMNI1_p_norm} -M)
+
+        task_in="fslmaths ${T1b_inMNI1_p_norm} -div ${T1b_inMNI1p_N_mean} -mul `fslstats ${atropos1_brain_norm} -M ` ${T1b_inMNI1_pN_sc2st2f}"
 
         task_exec
 
@@ -2160,29 +2233,36 @@ if [[ "${E_flag}" -eq 0 ]]; then
 
             # T1 stuff
             
-            R_nTiss_intmap[$i]="${str_pp}_T1_${tissues[$i]}_real_intmap.nii.gz"
+            R_nTiss_intmap[$i]="${str_pp}_T1_${tissues[$i]}_real_norm_intmap.nii.gz"
 
-            Atropos1b_ntiss_map[$i]=""
+            Atropos1_posts_bin[$i]="${str_pp}_T1_${tissues[$i]}_Atr1_post_bin.nii.gz"
 
-            R_nTiss_Int_map_norm[$i]=""
+            Atropos1b_ntiss_map[$i]="${str_pp}_T1_${tissues[$i]}_Atr1b_norm_intmap.nii.gz"
 
-            A1_nTiss_Int_scaled[$i]=""
+            R_nTiss_Int_map_norm[$i]="${str_pp}_T1_${tissues[$i]}_real_norm_nintmap.nii.gz"
 
-            R_nTiss_map_filled[$i]=""
+            A1_nTiss_Int_scaled[$i]="${str_pp}_T1_${tissues[$i]}_Atr1b_norm_scaled_intmap.nii.gz"
+
+            A1_nTiss_Int_scaled_fill[$i]="${str_pp}_T1_${tissues[$i]}_Atr1b_norm_scaled_intmap_fill.nii.gz"
+
+            R_nTiss_map_filled[$i]="${str_pp}_T1_${tissues[$i]}_real_norm_intmap_filled.nii.gz"
 
             # make the punched tpms
             # Atropos2 was run with only the Lmask_bin excluded
             # no smoothing or dilation
             # so dilx2 Lmasks should be fine
 
-            task_in="fslmaths ${Atropos2_posts[$i]} -mas ${Lmask_binv_inMNI1_dilx2} -thr 0.05 -bin ${atropos2_tpms_punched[$i]}"
+            task_in="fslmaths ${Atropos2_posts[$i]} -mas ${Lmask_binv_inMNI1_dilx2} -thr 0.1 -bin ${atropos2_tpms_punched[$i]}"
 
             task_exec
 
-            # derive a very specific tissue mask, e.g. for GM we only accept voxels with probability > 99.5 % as GM
+            # derive a very specific tissue mask, e.g. for GM we only accept voxels with probability > 99 % as GM
 
             task_in="fslmaths ${Atropos1_posts[$i]} -mas ${Lmask_bin_inMNI1_dilx2} -bin -save ${atropos1_tpms_Lfill[$i]} \
-            -add ${atropos2_tpms_punched[$i]} -save ${atropos2_tpms_filled[$i]} -restart ${Atropos2_posts[$i]} -thr 0.995 -bin ${Atropos2_Int_finder[$i]}"
+            -add ${atropos2_tpms_punched[$i]} ${atropos2_tpms_filled[$i]} && mrthreshold -force -quiet -nthreads ${ncpu} \
+            -toppercent 5 ${Atropos2_posts[$i]} - | mrcalc - ${brain_mask_minL_inMNI1} -mult 0.001 -gt ${Atropos2_Int_finder[$i]}"
+            
+            # "-restart ${Atropos2_posts[$i]} -thr 0.99 -bin ${Atropos2_Int_finder[$i]}"
 
             task_exec
 
@@ -2204,7 +2284,7 @@ if [[ "${E_flag}" -eq 0 ]]; then
 
             # clean the atropos1 posts
 
-            task_in="mrcalc ${Atropos1_posts[$i]} 0.05 -gt - | maskfilter connect - ${Atropos1_posts_bin[$i]} -force -nthreads ${ncpu} -connectivity -largest"
+            task_in="mrcalc ${Atropos1_posts[$i]} 0.1 -gt - | maskfilter - connect ${Atropos1_posts_bin[$i]} -force -nthreads ${ncpu} -connectivity -largest"
 
             task_exec
 
@@ -2216,18 +2296,18 @@ if [[ "${E_flag}" -eq 0 ]]; then
 
             # calculate mean of each tissue type norm intensity ignoring zeroes
 
-            A1_nTiss_Norm_mean[$i]=($(fslstats ${Atropos1b_ntiss_map[$i]} -M))
+            A1_nTiss_Norm_mean[$i]=$(fslstats ${Atropos1b_ntiss_map[$i]} -M)
 
             # get the T1 brain in MNI1 punched tissue norm intensity map 
             # we use a very specific tpm mask here
 
-            task_in="fslmaths ${T1b_inMNI1_p_norm} -mas ${Atropos2_Int_finder[$i]} ${R_nTiss_intmap[$i]}"
+            task_in="fslmaths ${T1b_inMNI1_pN_sc2st2f} -mas ${Atropos2_Int_finder[$i]} ${R_nTiss_intmap[$i]}"
 
             task_exec
 
             # calculate its mean norm intensity
 
-            R_nTiss_Norm_mean[$i]=($(fslstats ${R_nTiss_intmap[$i]} -M))
+            R_nTiss_Norm_mean[$i]=$(fslstats ${R_nTiss_intmap[$i]} -M)
 
             # scale the Atropos1b normalized map of normalized intensities to that of the real normalized image normalized intensity map
 
@@ -2236,7 +2316,7 @@ if [[ "${E_flag}" -eq 0 ]]; then
             
             task_exec
 
-            task_in="fslmaths ${T1b_inMNI1_p_norm} -mas ${atropos2_tpms_punched[$i]} -add ${A1_nTiss_Int_scaled_fill[$i]} -mas ${atropos2_tpms_filled_GLC[$i]} ${R_nTiss_map_filled[$i]}"
+            task_in="fslmaths ${T1b_inMNI1_pN_sc2st2f} -mas ${atropos2_tpms_punched[$i]} -add ${A1_nTiss_Int_scaled_fill[$i]} -mas ${atropos2_tpms_filled_GLC[$i]} ${R_nTiss_map_filled[$i]}"
 
             task_exec
 
@@ -2247,14 +2327,57 @@ if [[ "${E_flag}" -eq 0 ]]; then
         echo ${R_nTiss_Int_map_norm[@]}
         echo ${atropos2_tpms_filled_GLCbinv[@]}
 
+        CSF_max_2=$(mrstats -ignorezero -output max -quiet -force ${A1_nTiss_Int_scaled[0]})
+
+        CSF_nmean_2=$(mrcalc `mrstats -ignorezero -output mean -quiet -force ${A1_nTiss_Int_scaled[1]}` 0.2 -mul -force -quiet)
+
+        if (( $(bc <<<"${CSF_max_2} > ${CSF_nmean_2}") )); then
+
+            echo " CSF signal is too high, is this a postcontrast scan ? correcting"
+
+            echo " CSF signal is too high, is this a postcontrast scan ? correcting" >> ${prep_log}
+
+            task_in="fslmaths ${Atropos1b_ntiss_map[0]} -div ${CSF_max_2} -mul ${CSF_nmean_2} \
+            -save ${str_pp}_T1_CSF_corr_Atr1b_norm_scaled_intmap.nii.gz -mas ${Lmask_bin_inMNI1_dilx2} \
+            ${str_pp}_T1_CSF_corr_Atr1b_norm_scaled_intmap_fill.nii.gz"
+            
+            task_exec
+
+            task_in="fslmaths ${T1b_inMNI1_pN_sc2st2f} -mas ${atropos2_tpms_punched[0]} -add ${str_pp}_T1_CSF_corr_Atr1b_norm_scaled_intmap_fill.nii.gz -mas ${atropos2_tpms_filled_GLC[0]} ${str_pp}_T1_CSF_corr_real_norm_intmap_filled.nii.gz"
+
+            task_exec
+
+            task_in="ImageMath 3 ${str_pp}_T1_nGCCS_synth.nii.gz addtozero ${R_nTiss_map_filled[1]} ${str_pp}_T1_CSF_corr_real_norm_intmap_filled.nii.gz && ImageMath 3 \
+            ${str_pp}_T1_nGCCSBG_synth.nii.gz addtozero ${str_pp}_T1_nGCCS_synth.nii.gz ${R_nTiss_map_filled[2]} && ImageMath 3 ${str_pp}_T1_nGCCSBGWM_synth.nii.gz \
+            addtozero ${str_pp}_T1_nGCCSBG_synth.nii.gz ${R_nTiss_map_filled[3]}"
+
+            task_exec
+
+
+        else
+
+            task_in="ImageMath 3 ${str_pp}_T1_nGCCS_synth.nii.gz addtozero ${R_nTiss_map_filled[1]} ${R_nTiss_map_filled[0]} && ImageMath 3 \
+            ${str_pp}_T1_nGCCSBG_synth.nii.gz addtozero ${str_pp}_T1_nGCCS_synth.nii.gz ${R_nTiss_map_filled[2]} && ImageMath 3 ${str_pp}_T1_nGCCSBGWM_synth.nii.gz \
+            addtozero ${str_pp}_T1_nGCCSBG_synth.nii.gz ${R_nTiss_map_filled[3]}"
+
+            task_exec
+
+        fi
+
         # are the intensities now the same or do I have to reconstitute the target image also ?
 
-        task_in="fslmaths ${R_nTiss_map_filled[0]} -mas ${atropos2_tpms_filled_GLCbinv[1]} -add ${R_nTiss_map_filled[1]} \
-        -save ${str_pp}_T1_cw_dil_s_fill.nii.gz -mas ${atropos2_tpms_filled_GLCbinv[2]} -add ${R_nTiss_map_filled[2]} \
-        -save ${str_pp}_T1_cwc_dil_s_fill.nii.gz -mas ${atropos2_tpms_filled_GLCbinv[3]} -add ${R_nTiss_map_filled[3]} \
-        -save ${str_pp}_T1_cwcbg_dil_s_fill.nii.gz -mas ${brain_mask_inMNI1} -mul ${T1b_inMNI1p_mean} ${str_pp}_synthT1_MNI1_holes.nii.gz"
+        # task_in="fslmaths ${R_nTiss_map_filled[0]} -mas ${atropos2_tpms_filled_GLCbinv[1]} -add ${R_nTiss_map_filled[1]} \
+        # -save ${str_pp}_T1_cw_dil_s_fill.nii.gz -mas ${atropos2_tpms_filled_GLCbinv[2]} -add ${R_nTiss_map_filled[2]} \
+        # -save ${str_pp}_T1_cwc_dil_s_fill.nii.gz -mas ${atropos2_tpms_filled_GLCbinv[3]} -add ${R_nTiss_map_filled[3]} \
+        # -save ${str_pp}_T1_cwcbg_dil_s_fill.nii.gz -mas ${brain_mask_inMNI1} -mul ${T1b_inMNI1p_mean} ${str_pp}_synthT1_MNI1_holes.nii.gz"
+
+        # use this instead
+
+        task_in="fslmaths ${str_pp}_T1_nGCCSBGWM_synth.nii.gz -mul ${T1b_inMNI1p_mean} ${str_pp}_synthT1_MNI1_holes.nii.gz"
 
         task_exec
+
+        ###
 
         # task_in="WarpImageMultiTransform 3 ${atropos2_tpms_filled_GLC[$i]} ${atropos2_tpms_filled_GLC_nat[$i]} -R ${T1_brain_clean} \
         # -i ${T1_bk2nat1_str}0GenericAffine.mat ${T1_bk2nat1_str}1InverseWarp.nii.gz"
@@ -2273,7 +2396,7 @@ if [[ "${E_flag}" -eq 0 ]]; then
         # added the template flag condition here
         # diff map may not be needed anymore even
 
-        if [[ -z "${bilateral}" ]] && [[ ${t_flag} == 0 ]]; then
+        if [[ -z "${bilateral}" ]] && [[ "${t_flag}" -eq 0 ]]; then
 
             task_in="fslmaths ${T1_filled1} -sub ${str_pp}_synthT1_MNI1.nii.gz ${filledT1_synthT1_diff}"
 
@@ -2283,7 +2406,7 @@ if [[ "${E_flag}" -eq 0 ]]; then
 
             task_exec
 
-        elif [[ ! -z "${bilateral}" ]] || [[ ${t_flag} == 1 ]]; then
+        elif [[ ! -z "${bilateral}" ]] || [[ "${t_flag}" -eq 1 ]]; then
 
             task_in="fslmaths ${T1_sti2fill_brain} -sub ${str_pp}_synthT1_MNI1.nii.gz ${stiT1_synthT1_diff}"
 
@@ -2294,33 +2417,8 @@ if [[ "${E_flag}" -eq 0 ]]; then
             task_exec
 
         fi
-
-        # N4BFC again, sharpen and apply inverse transform to get hybrid ims to native T1 space
-        # not so sure we will need this still 
-
-        unset output
-
-        input="${str_pp}_hybridT1_MNI1.nii.gz"
-
-        bias="${str_pp}_T1hybrid_MNI1_bias.nii.gz"
-
-        mask=" -x ${brain_mask_inMNI1}"
-
-        output="${str_pp}_T1hybrid_MNI1_bfc.nii.gz"
-
-        KUL_N4BFC
-
-        image_in="${str_pp}_T1hybrid_MNI1_bfc.nii.gz"
-
-        image_out="${str_pp}_hybridT1_sMNI1.nii.gz"
-
-        task_in="ImageMath 3 ${image_out} Sharpen ${image_in}"
-
-        task_exec
-
-        unset image_in image_out
         
-        image_in="${str_pp}_hybridT1_sMNI1.nii.gz"
+        image_in="${str_pp}_hybridT1_MNI1.nii.gz"
 
         image_out="${str_pp}_hybridT1_native.nii.gz"
 
@@ -2334,13 +2432,14 @@ if [[ "${E_flag}" -eq 0 ]]; then
 
         task_exec
 
-        task_in="fslmaths ${str_pp}_hybridT1_native_S.nii.gz -mul ${Lmask_bin_s3} ${T1_fin_Lfill}"
+        task_in="fslmaths ${str_pp}_hybridT1_native_S.nii.gz -div `mrstats -force -nthreads ${ncpu} -quiet -mask ${clean_mask_nat} -ignorezero -output mean ${str_pp}_hybridT1_native_S.nii.gz ` \
+        -mul `mrstats -mask ${brain_mask_minL} -force -nthreads ${ncpu} -quiet -ignorezero -output mean ${T1_brain_clean} ` -mul ${Lmask_bin_s3} ${T1_fin_Lfill}"
 
         task_exec
         
         # make the final outputs
         
-        if [[ -z "${bilateral}" ]] && [[ ${t_flag} == 0 ]]; then
+        if [[ -z "${bilateral}" ]] && [[ "${t_flag}" -eq 0 ]]; then
         
             # if bilateral is empty, then we generate final output with stitched noise map
         
@@ -2354,17 +2453,19 @@ if [[ "${E_flag}" -eq 0 ]]; then
 
             unset image_in image_out
 
-            task_in="fslmaths ${T1_brain_clean} -mul ${Lmask_binv_s3} -add ${T1_fin_Lfill} -save ${T1_nat_filled_out} \
-            -mul ${BET_mask_s2} -add ${T1_skull} -save ${T1_nat_fout_wskull} -add ${stitched_noise_nat} ${T1_nat_fout_wN_skull}"
+            # will need this here
+
+            task_in="fslmaths ${T1_brain_clean} -mul ${Lmask_binv_s3} -add ${T1_fin_Lfill} -save ${T1_nat_filled_out} -mul ${BET_mask_s2} \
+            -add ${T1_skull} -save ${T1_nat_fout_wskull} -add ${stitched_noise_nat} ${T1_nat_fout_wN_skull}"
 
             task_exec
 
-        elif [[ ! -z "${bilateral}" ]] || [[ ${t_flag} == 1 ]]; then
+        elif [[ ! -z "${bilateral}" ]] || [[ "${t_flag}" -eq 1 ]]; then
         
             # if bilateral is 1, then we generate final output with original noise map
         
-            task_in="fslmaths ${T1_brain_clean} -mul ${Lmask_binv_s3} -add ${T1_fin_Lfill} -save ${T1_nat_filled_out} \
-            -mul ${BET_mask_s2} -add ${T1_skull} -save ${T1_nat_fout_wskull} -add ${str_pp}_T1_noise.nii.gz ${T1_nat_fout_wN_skull}"
+            task_in="fslmaths ${T1_brain_clean} -mul ${Lmask_binv_s3} -add ${T1_fin_Lfill} -save ${T1_nat_filled_out} -mul ${BET_mask_s2} \
+            -add ${T1_skull} -save ${T1_nat_fout_wskull} -add ${str_pp}_T1_noise.nii.gz ${T1_nat_fout_wN_skull}"
 
             task_exec
 
@@ -2555,6 +2656,7 @@ if [[ "${F_flag}" -eq 1 ]] ; then
     else
 
         echo " recon-all already done, skipping. "
+        echo " recon-all already done, skipping. "  >> ${prep_log}
         
     fi
 
@@ -2596,17 +2698,17 @@ if [[ "${F_flag}" -eq 1 ]] ; then
 
     fs_parc_mgz="${fs_output}/${subj}/mri/aparc+aseg.mgz"
 
-    fs_parc_nii="${fs_output}/${subj}/mri/sub-${subj}_aparc+aseg.nii"
+    fs_parc_nii="${str_op}_aparc+aseg.nii.gz"
 
-    fs_parc_minL_nii="${fs_output}/${subj}/mri/sub-${subj}_aparc+aseg_minL.nii"
+    fs_parc_minL_nii="${str_op}_aparc+aseg_minL.nii.gz"
 
-    fs_lobes_nii="${fs_output}/${subj}/mri/sub-${subj}_lobes_ctx_wm_fs.nii"
+    fs_lobes_nii="${str_op}_lobes_ctx_wm_fs.nii.gz"
 
-    fs_lobes_minL_nii="${fs_output}/${subj}/mri/sub-${subj}_lobes_ctx_wm_fs_minL.nii"
+    fs_lobes_minL_nii="${str_op}_lobes_ctx_wm_fs_minL.nii.gz"
 
-    fs_parc_plusL_nii="${fs_output}/${subj}/mri/sub-${subj}_aparc+aseg+Lesion.nii"
+    fs_parc_plusL_nii="${str_op}_aparc+aseg+Lesion.nii.gz"
 
-    fs_lobes_plusL_nii="${fs_output}/${subj}/mri/sub-${subj}_aparc+aseg.nii"
+    fs_lobes_plusL_nii="${str_op}_lobes_ctx_wm_fs+Lesion.nii.gz"
 
     labelslength=${#labels[@]}
 
@@ -2616,7 +2718,7 @@ if [[ "${F_flag}" -eq 1 ]] ; then
 
     fs_lobes_mark=${fs_lobes_nii}
 
-    search_wf_mark5=($(find ${fs_lobes_nii} -type f | grep lobes_ctx_wm_fs.nii));
+    search_wf_mark5=($(find ${output_d} -type f | grep lobes_ctx_wm_fs+Lesion.nii));
 
     if [[ -z "$search_wf_mark5" ]]; then
 
@@ -2691,7 +2793,7 @@ if [[ "${F_flag}" -eq 1 ]] ; then
 
             echo "this lesion is larger than 50 ml but less than 100 ml, we will erode it twice"
 
-            task_in="maksfilter -force -nthreads ${ncpu} ${L_mask_reori} erode ${L_mask_reori_ero2} -npass 2"
+            task_in="maskfilter -force -nthreads ${ncpu} ${L_mask_reori} erode ${L_mask_reori_ero2} -npass 2"
 
             task_exec
 
@@ -2714,7 +2816,7 @@ if [[ "${F_flag}" -eq 1 ]] ; then
 
         task_exec
 
-        task_in="fslmaths ${fs_lobes_nii} -mas ${bmc_minL_conn} ${fs_lobes_minL_nii} && ImageMath 3 ${fs_parc_plusL_nii} \
+        task_in="fslmaths ${fs_lobes_nii} -mas ${bmc_minL_conn} ${fs_lobes_minL_nii} && ImageMath 3 ${fs_lobes_plusL_nii} \
         addtozero ${fs_lobes_minL_nii} ${L_mask_reori_scaled}"
 
         task_exec

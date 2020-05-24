@@ -530,6 +530,8 @@ if [[ "${P_flag}" -eq 1 ]] && [[ "${t_flag}" -eq 0 ]]; then
 
     MNI_brain_mask="${function_path}/atlasses/Templates/NKI10u_brain_mask.nii.gz"
 
+    new_priors="${function_path}/atlasses/Templates/priors/NKI10U_Prior_%d.nii.gz"
+
 elif [[ "${P_flag}" -eq 1 ]] && [[ "${t_flag}" -eq 1 ]]; then
 
     MNI_T1="${function_path}/atlasses/Templates/VBG_T1_temp_ped.nii.gz"
@@ -537,6 +539,8 @@ elif [[ "${P_flag}" -eq 1 ]] && [[ "${t_flag}" -eq 1 ]]; then
     MNI_T1_brain="${function_path}/atlasses/Templates/VBG_T1_temp_ped_brain.nii.gz"
 
     MNI_brain_mask="${function_path}/atlasses/Templates/NKI10u_brain_mask.nii.gz"
+
+    new_priors="${function_path}/atlasses/Templates/priors/VBG_ped_T_Prior_%d.nii.gz"
 
 elif [[ "${P_flag}" -eq 0 ]] && [[ "${t_flag}" -eq 1 ]]; then
 
@@ -546,6 +550,8 @@ elif [[ "${P_flag}" -eq 0 ]] && [[ "${t_flag}" -eq 1 ]]; then
 
     MNI_brain_mask="${function_path}/atlasses/Templates/HR_T1_MNI_brain_mask.nii.gz"
 
+    new_priors="${function_path}/atlasses/Templates/priors/VBG_adult_T_Prior_%d.nii.gz"
+
 elif [[ "${P_flag}" -eq 0 ]] && [[ "${t_flag}" -eq 0 ]]; then
 
     MNI_T1="${function_path}/atlasses/Templates/HR_T1_MNI.nii.gz"
@@ -553,6 +559,8 @@ elif [[ "${P_flag}" -eq 0 ]] && [[ "${t_flag}" -eq 0 ]]; then
     MNI_T1_brain="${function_path}/atlasses/Templates/HR_T1_MNI_brain.nii.gz"
 
     MNI_brain_mask="${function_path}/atlasses/Templates/HR_T1_MNI_brain_mask.nii.gz"
+
+    new_priors="${function_path}/atlasses/Templates/priors/HRT1_Prior_%d.nii.gz"
 
 fi
 
@@ -594,9 +602,7 @@ fi
 
     tissues=("CSF" "GMC" "GMBG" "WM");
     
-    # making new priors in prog
-
-    new_priors="${function_path}/atlasses/Templates/priors/new_priors_%d.nii.gz"
+    # priors
 
     priors_str="${new_priors::${#new_priors}-9}*.nii.gz"
 
